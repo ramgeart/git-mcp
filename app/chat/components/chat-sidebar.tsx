@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   Github,
   Key,
+  Plug,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,14 +26,18 @@ import {
 import { Badge } from "~/chat/components/ui/badge";
 import { MCPServerManager } from "./mcp-server-manager";
 import { ApiKeyManager } from "./api-key-manager";
+import { CustomProviderManager } from "./custom-provider-manager";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "~/chat/lib/utils";
 
 import { useMCP } from "~/chat/lib/context/mcp-context";
+import { useCustomProviders } from "./custom-providers-provider";
 
 export function ChatSidebar() {
   const [mcpSettingsOpen, setMcpSettingsOpen] = useState(false);
   const [apiKeySettingsOpen, setApiKeySettingsOpen] = useState(false);
+  const [customProviderSettingsOpen, setCustomProviderSettingsOpen] =
+    useState(false);
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -44,8 +49,14 @@ export function ChatSidebar() {
     setSelectedMcpServers,
   } = useMCP();
 
+  // Get custom providers data from context
+  const { customProviders, setCustomProviders } = useCustomProviders();
+
   // Get active MCP servers status
   const activeServersCount = selectedMcpServers.length;
+
+  // Get active custom providers count
+  const activeProvidersCount = customProviders.filter((p) => p.enabled).length;
 
   return (
     <Sidebar
@@ -126,11 +137,50 @@ export function ChatSidebar() {
                 <SidebarMenuButton
                   onClick={() => setApiKeySettingsOpen(true)}
                   className="w-full flex items-center gap-2 transition-all hover:bg-secondary/50 active:bg-secondary/70 cursor-pointer"
+                  tooltip={isCollapsed ? "API Keys" : undefined}
                 >
                   <Key className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="flex-grow text-sm text-foreground/80">
-                    API Keys
-                  </span>
+                  {!isCollapsed && (
+                    <span className="flex-grow text-sm text-foreground/80">
+                      API Keys
+                    </span>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setCustomProviderSettingsOpen(true)}
+                  className={cn(
+                    "w-full flex items-center gap-2 transition-all",
+                    "hover:bg-secondary/50 active:bg-secondary/70 cursor-pointer",
+                  )}
+                  tooltip={isCollapsed ? "Custom Providers" : undefined}
+                >
+                  <Plug
+                    className={cn(
+                      "h-4 w-4 flex-shrink-0",
+                      activeProvidersCount > 0
+                        ? "text-primary"
+                        : "text-muted-foreground",
+                    )}
+                  />
+                  {!isCollapsed && (
+                    <span className="flex-grow text-sm text-foreground/80">
+                      Custom Providers
+                    </span>
+                  )}
+                  {activeProvidersCount > 0 && !isCollapsed ? (
+                    <Badge
+                      variant="secondary"
+                      className="ml-auto text-[10px] px-1.5 py-0 h-5 bg-secondary/80"
+                    >
+                      {activeProvidersCount}
+                    </Badge>
+                  ) : activeProvidersCount > 0 && isCollapsed ? (
+                    <SidebarMenuBadge className="bg-secondary/80 text-secondary-foreground">
+                      {activeProvidersCount}
+                    </SidebarMenuBadge>
+                  ) : null}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem className="mt-auto">
@@ -190,6 +240,13 @@ export function ChatSidebar() {
         <ApiKeyManager
           open={apiKeySettingsOpen}
           onOpenChange={setApiKeySettingsOpen}
+        />
+
+        <CustomProviderManager
+          open={customProviderSettingsOpen}
+          onOpenChange={setCustomProviderSettingsOpen}
+          providers={customProviders}
+          onProvidersChange={setCustomProviders}
         />
       </SidebarFooter>
     </Sidebar>

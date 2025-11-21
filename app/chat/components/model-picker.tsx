@@ -4,6 +4,8 @@ import {
   modelDetails,
   type modelID,
   defaultModel,
+  getAllModelDetails,
+  getAllModelIds,
 } from "~/chat/ai/providers.shared";
 import {
   Select,
@@ -26,8 +28,10 @@ import {
   Gauge,
   Rocket,
   Bot,
+  Plug,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useCustomProviders } from "./custom-providers-provider";
 
 interface ModelPickerProps {
   selectedModel: modelID;
@@ -39,9 +43,20 @@ export const ModelPicker = ({
   setSelectedModel,
 }: ModelPickerProps) => {
   const [hoveredModel, setHoveredModel] = useState<modelID | null>(null);
+  const { customProviders } = useCustomProviders();
+
+  // Get all available models including custom providers
+  const allModelDetails = useMemo(
+    () => getAllModelDetails(customProviders),
+    [customProviders],
+  );
+  const allModelIds = useMemo(
+    () => getAllModelIds(customProviders),
+    [customProviders],
+  );
 
   // Ensure we always have a valid model ID
-  const validModelId = MODELS.includes(selectedModel)
+  const validModelId = allModelIds.includes(selectedModel)
     ? selectedModel
     : defaultModel;
 
@@ -66,7 +81,7 @@ export const ModelPicker = ({
       case "xai":
         return <Sparkles className="h-3 w-3 text-yellow-500" />;
       default:
-        return <Info className="h-3 w-3 text-blue-500" />;
+        return <Plug className="h-3 w-3 text-purple-500" />;
     }
   };
 
@@ -125,11 +140,11 @@ export const ModelPicker = ({
 
   // Get current model details to display
   const displayModelId = hoveredModel || validModelId;
-  const currentModelDetails = modelDetails[displayModelId];
+  const currentModelDetails = allModelDetails[displayModelId];
 
   // Handle model change
   const handleModelChange = (modelId: string) => {
-    if (MODELS.includes(modelId)) {
+    if (allModelIds.includes(modelId)) {
       const typedModelId = modelId as modelID;
       setSelectedModel(typedModelId);
     }
@@ -148,9 +163,9 @@ export const ModelPicker = ({
             className="text-xs font-medium flex items-center gap-1 sm:gap-2 text-primary dark:text-primary-foreground ocean:text-primary-foreground"
           >
             <div className="flex items-center gap-1 sm:gap-2">
-              {getProviderIcon(modelDetails[validModelId].provider)}
+              {getProviderIcon(allModelDetails[validModelId].provider)}
               <span className="font-medium truncate">
-                {modelDetails[validModelId].name}
+                {allModelDetails[validModelId].name}
               </span>
             </div>
           </SelectValue>
@@ -163,7 +178,7 @@ export const ModelPicker = ({
             {/* Model selector column */}
             <div className="sm:border-r border-border/40 bg-muted/20 p-0 pr-1">
               <SelectGroup className="space-y-1">
-                {MODELS.map((id) => {
+                {allModelIds.map((id) => {
                   const modelId = id as modelID;
                   return (
                     <SelectItem
@@ -182,13 +197,13 @@ export const ModelPicker = ({
                     >
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
-                          {getProviderIcon(modelDetails[modelId].provider)}
+                          {getProviderIcon(allModelDetails[modelId].provider)}
                           <span className="font-medium truncate">
-                            {modelDetails[modelId].name}
+                            {allModelDetails[modelId].name}
                           </span>
                         </div>
                         <span className="text-[10px] sm:text-xs text-muted-foreground">
-                          {modelDetails[modelId].provider}
+                          {allModelDetails[modelId].provider}
                         </span>
                       </div>
                     </SelectItem>
