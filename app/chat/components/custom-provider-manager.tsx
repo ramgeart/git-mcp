@@ -15,7 +15,7 @@ import type {
   CustomProviderConfig,
   CustomModelInfo,
 } from "../ai/providers.shared";
-import { Plus, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Edit } from "lucide-react";
 import { Badge } from "~/chat/components/ui/badge";
 
 interface CustomProviderManagerProps {
@@ -64,9 +64,10 @@ export function CustomProviderManager({
   // Fetch models from provider's /models endpoint
   const fetchModels = useCallback(
     async (baseURL: string, apiKey: string): Promise<CustomModelInfo[]> => {
-      const url = baseURL.endsWith("/")
-        ? `${baseURL}models`
-        : `${baseURL}/models`;
+      // Construct URL properly
+      const urlObj = new URL(baseURL);
+      urlObj.pathname = urlObj.pathname.replace(/\/+$/, "") + "/models";
+      const url = urlObj.toString();
 
       // Create an AbortController with timeout
       const controller = new AbortController();
@@ -92,27 +93,43 @@ export function CustomProviderManager({
           description?: string;
         }
 
-        interface ModelsApiResponse {
-          data?: ModelResponse[];
+        const data: unknown = await response.json();
+
+        // Validate response structure
+        if (
+          !data ||
+          typeof data !== "object" ||
+          !("data" in data) ||
+          !Array.isArray((data as any).data)
+        ) {
+          throw new Error("Invalid response format from provider");
         }
 
-        const data: ModelsApiResponse = await response.json();
-
         // OpenAI API format: { data: [ { id: "model-id", ... }, ... ] }
-        if (data.data && Array.isArray(data.data)) {
-          return data.data.map((model) => ({
+        const models = (data as any).data;
+        return models
+          .filter(
+            (model: any): model is ModelResponse =>
+              typeof model === "object" &&
+              model !== null &&
+              typeof model.id === "string" &&
+              model.id.length > 0,
+          )
+          .map((model: ModelResponse) => ({
             id: model.id,
             name: model.id,
             description: model.description || "",
             capabilities: [],
           }));
-        }
-
-        return [];
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === "AbortError") {
           throw new Error("Request timed out. Please check your provider URL.");
+        }
+        if (error instanceof TypeError && error.message.includes("fetch")) {
+          throw new Error(
+            "Network error. This may be due to CORS restrictions or an invalid URL.",
+          );
         }
         console.error("Error fetching models:", error);
         throw error;
@@ -123,15 +140,49 @@ export function CustomProviderManager({
 
   // Add or update provider
   const handleSaveProvider = useCallback(async () => {
-    if (!formData.name || !formData.baseURL || !formData.apiKey) {
+    // Validate and clean input
+    const trimmedName = formData.name.trim();
+    const trimmedBaseURL = formData.baseURL.trim();
+    const trimmedApiKey = formData.apiKey.trim();
+
+    if (!trimmedName || !trimmedBaseURL || !trimmedApiKey) {
       toast.error("Please fill in all fields");
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(trimmedBaseURL);
+    } catch {
+      toast.error("Please enter a valid URL for the base URL");
+      return;
+    }
+
+    // Check for duplicate provider names (excluding current if editing)
+    const duplicateName = providers.find(
+      (p) =>
+        p.name.toLowerCase() === trimmedName.toLowerCase() &&
+        p.id !== editingProvider?.id,
+    );
+    if (duplicateName) {
+      toast.error("A provider with this name already exists");
+      return;
+    }
+
+    // Validate reasonable length limits
+    if (trimmedName.length > 100) {
+      toast.error("Provider name is too long (max 100 characters)");
+      return;
+    }
+    if (trimmedBaseURL.length > 500) {
+      toast.error("Base URL is too long (max 500 characters)");
       return;
     }
 
     setIsLoadingModels(true);
     try {
       // Fetch models from provider
-      const models = await fetchModels(formData.baseURL, formData.apiKey);
+      const models = await fetchModels(trimmedBaseURL, trimmedApiKey);
 
       if (models.length === 0) {
         toast.error("No models found for this provider");
@@ -141,9 +192,9 @@ export function CustomProviderManager({
 
       const newProvider: CustomProviderConfig = {
         id: editingProvider?.id || crypto.randomUUID(),
-        name: formData.name,
-        baseURL: formData.baseURL,
-        apiKey: formData.apiKey,
+        name: trimmedName,
+        baseURL: trimmedBaseURL,
+        apiKey: trimmedApiKey,
         models,
         enabled: true,
       };
@@ -154,12 +205,12 @@ export function CustomProviderManager({
         updatedProviders = providers.map((p) =>
           p.id === editingProvider.id ? newProvider : p,
         );
-        toast.success(`Provider "${formData.name}" updated successfully`);
+        toast.success(`Provider "${trimmedName}" updated successfully`);
       } else {
         // Add new provider
         updatedProviders = [...providers, newProvider];
         toast.success(
-          `Provider "${formData.name}" added with ${models.length} models`,
+          `Provider "${trimmedName}" added with ${models.length} models`,
         );
       }
 
@@ -171,7 +222,9 @@ export function CustomProviderManager({
     } catch (error) {
       console.error("Error saving provider:", error);
       toast.error(
-        "Failed to fetch models from provider. Please check your URL and API key.",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch models from provider. Please check your URL and API key.",
       );
     } finally {
       setIsLoadingModels(false);
@@ -276,6 +329,22 @@ export function CustomProviderManager({
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => handleToggleProvider(provider.id)}
+                          title={
+                            provider.enabled
+                              ? "Disable provider"
+                              : "Enable provider"
+                          }
+                        >
+                          {provider.enabled ? (
+                            <span className="h-4 w-4">✓</span>
+                          ) : (
+                            <span className="h-4 w-4">○</span>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleRefreshModels(provider)}
                           disabled={isLoadingModels}
                           title="Refresh models"
@@ -290,7 +359,7 @@ export function CustomProviderManager({
                           onClick={() => setEditingProvider(provider)}
                           title="Edit provider"
                         >
-                          Edit
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -355,6 +424,12 @@ export function CustomProviderManager({
             </DialogTitle>
             <DialogDescription>
               Enter the details for your OpenAI-compatible LLM provider.
+              <br />
+              <strong className="text-amber-600 dark:text-amber-500">
+                Security Warning:
+              </strong>{" "}
+              API keys are stored in your browser&apos;s localStorage without
+              encryption and are accessible to JavaScript running on this page.
             </DialogDescription>
           </DialogHeader>
 

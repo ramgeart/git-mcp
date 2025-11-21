@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useCustomProviders } from "./custom-providers-provider";
+import { toast } from "sonner";
 
 interface ModelPickerProps {
   selectedModel: modelID;
@@ -66,6 +67,18 @@ export const ModelPicker = ({
       setSelectedModel(validModelId as modelID);
     }
   }, [selectedModel, validModelId, setSelectedModel]);
+
+  // Notify user when selected model becomes unavailable
+  useEffect(() => {
+    if (
+      !allModelIds.includes(selectedModel) &&
+      selectedModel !== defaultModel
+    ) {
+      toast.info(
+        `Model "${selectedModel}" is no longer available. Switched to ${defaultModel}.`,
+      );
+    }
+  }, [customProviders, allModelIds, selectedModel]);
 
   // Function to get the appropriate icon for each provider
   const getProviderIcon = (provider: string) => {
@@ -140,7 +153,8 @@ export const ModelPicker = ({
 
   // Get current model details to display
   const displayModelId = hoveredModel || validModelId;
-  const currentModelDetails = allModelDetails[displayModelId];
+  const currentModelDetails =
+    allModelDetails[displayModelId] || allModelDetails[defaultModel];
 
   // Handle model change
   const handleModelChange = (modelId: string) => {

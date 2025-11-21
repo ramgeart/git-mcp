@@ -67,7 +67,7 @@ export const getModel = (
     "grok-3-mini": xaiClient("grok-3-mini-latest"),
   };
 
-  // Add custom provider models
+  // Add custom provider models with prefixed IDs to avoid collisions
   customProviders
     .filter((provider) => provider.enabled)
     .forEach((provider) => {
@@ -77,7 +77,9 @@ export const getModel = (
       });
 
       provider.models.forEach((model) => {
-        languageModels[model.id] = customClient(model.id);
+        // Prefix custom model IDs with provider name to avoid collision with built-in models
+        const modelKey = `${provider.name}/${model.id}`;
+        languageModels[modelKey] = customClient(model.id);
       });
     });
 

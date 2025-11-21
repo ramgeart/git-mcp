@@ -11,6 +11,11 @@ export interface CustomProviderConfig {
   id: string; // Unique identifier for the provider
   name: string; // Display name
   baseURL: string; // Base URL for the OpenAI-compatible API
+  /**
+   * API key for authentication.
+   * WARNING: Storing API keys in localStorage without encryption exposes them to any JavaScript running on the page.
+   * Users should be aware of the security implications when adding custom providers.
+   */
   apiKey: string; // API key for authentication
   models: CustomModelInfo[]; // Available models from this provider
   enabled: boolean; // Whether this provider is active
@@ -81,12 +86,14 @@ export function getAllModelDetails(
 ): Record<string, ModelInfo> {
   const allModels = { ...builtInModelDetails };
 
-  // Add models from enabled custom providers
+  // Add models from enabled custom providers with prefixed IDs
   customProviders
     .filter((provider) => provider.enabled)
     .forEach((provider) => {
       provider.models.forEach((model) => {
-        allModels[model.id] = {
+        // Prefix custom model IDs with provider name to avoid collision with built-in models
+        const modelKey = `${provider.name}/${model.id}`;
+        allModels[modelKey] = {
           provider: provider.name,
           name: model.name || model.id,
           description: model.description || `Model from ${provider.name}`,
