@@ -30,6 +30,9 @@ export type StorageKey =
   | "GROQ_API_KEY"
   | "XAI_API_KEY";
 
+// modelID includes both built-in model IDs and custom provider model IDs
+// The string type allows for dynamic custom models while the specific literals
+// provide autocomplete for built-in models
 export type modelID =
   | "gpt-4.1-mini"
   | "claude-3-7-sonnet"

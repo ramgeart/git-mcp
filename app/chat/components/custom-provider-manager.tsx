@@ -11,7 +11,6 @@ import { Button } from "~/chat/components/ui/button";
 import { Input } from "~/chat/components/ui/input";
 import { Label } from "~/chat/components/ui/label";
 import { toast } from "sonner";
-import { STORAGE_KEYS } from "~/chat/lib/constants";
 import type {
   CustomProviderConfig,
   CustomModelInfo,
@@ -81,11 +80,20 @@ export function CustomProviderManager({
           throw new Error(`Failed to fetch models: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        interface ModelResponse {
+          id: string;
+          description?: string;
+        }
+
+        interface ModelsApiResponse {
+          data?: ModelResponse[];
+        }
+
+        const data: ModelsApiResponse = await response.json();
 
         // OpenAI API format: { data: [ { id: "model-id", ... }, ... ] }
         if (data.data && Array.isArray(data.data)) {
-          return data.data.map((model: any) => ({
+          return data.data.map((model) => ({
             id: model.id,
             name: model.id,
             description: model.description || "",
@@ -145,10 +153,6 @@ export function CustomProviderManager({
       }
 
       onProvidersChange(updatedProviders);
-      localStorage.setItem(
-        STORAGE_KEYS.CUSTOM_PROVIDERS,
-        JSON.stringify(updatedProviders),
-      );
 
       setShowAddDialog(false);
       setEditingProvider(null);
@@ -168,10 +172,6 @@ export function CustomProviderManager({
     (providerId: string) => {
       const updatedProviders = providers.filter((p) => p.id !== providerId);
       onProvidersChange(updatedProviders);
-      localStorage.setItem(
-        STORAGE_KEYS.CUSTOM_PROVIDERS,
-        JSON.stringify(updatedProviders),
-      );
       toast.success("Provider deleted");
     },
     [providers, onProvidersChange],
@@ -196,10 +196,6 @@ export function CustomProviderManager({
         );
 
         onProvidersChange(updatedProviders);
-        localStorage.setItem(
-          STORAGE_KEYS.CUSTOM_PROVIDERS,
-          JSON.stringify(updatedProviders),
-        );
         toast.success(
           `Refreshed ${models.length} models for "${provider.name}"`,
         );
@@ -220,10 +216,6 @@ export function CustomProviderManager({
         p.id === providerId ? { ...p, enabled: !p.enabled } : p,
       );
       onProvidersChange(updatedProviders);
-      localStorage.setItem(
-        STORAGE_KEYS.CUSTOM_PROVIDERS,
-        JSON.stringify(updatedProviders),
-      );
     },
     [providers, onProvidersChange],
   );
