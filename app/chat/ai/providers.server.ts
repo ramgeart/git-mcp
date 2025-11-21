@@ -9,7 +9,11 @@ import {
   extractReasoningMiddleware,
   type LanguageModel,
 } from "ai";
-import type { modelID, StorageKey } from "./providers.shared";
+import type {
+  modelID,
+  StorageKey,
+  CustomProviderConfig,
+} from "./providers.shared";
 
 const middleware = extractReasoningMiddleware({
   tagName: "think",
@@ -18,6 +22,7 @@ const middleware = extractReasoningMiddleware({
 export const getModel = (
   env: CloudflareEnvironment,
   apiKeys: Partial<Record<StorageKey, string>>,
+  customProviders: CustomProviderConfig[] = [],
 ) => {
   // Helper to get API keys from environment variables first, then localStorage
   const getApiKey = (key: StorageKey): string | undefined => {
@@ -51,7 +56,8 @@ export const getModel = (
     apiKey: getApiKey("XAI_API_KEY"),
   });
 
-  const languageModels: Record<modelID, LanguageModel> = {
+  // Built-in language models
+  const languageModels: Record<string, LanguageModel> = {
     "gpt-4.1-mini": openaiClient("gpt-4.1-mini"),
     "claude-3-7-sonnet": anthropicClient("claude-3-7-sonnet-20250219"),
     "qwen-qwq": wrapLanguageModel({
@@ -60,6 +66,22 @@ export const getModel = (
     }),
     "grok-3-mini": xaiClient("grok-3-mini-latest"),
   };
+
+  // Add custom provider models with prefixed IDs to avoid collisions
+  customProviders
+    .filter((provider) => provider.enabled)
+    .forEach((provider) => {
+      const customClient = createOpenAI({
+        apiKey: provider.apiKey,
+        baseURL: provider.baseURL,
+      });
+
+      provider.models.forEach((model) => {
+        // Prefix custom model IDs with provider name to avoid collision with built-in models
+        const modelKey = `${provider.name}/${model.id}`;
+        languageModels[modelKey] = customClient(model.id);
+      });
+    });
 
   const model = customProvider({
     languageModels,

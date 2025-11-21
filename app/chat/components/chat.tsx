@@ -10,6 +10,7 @@ import { useLocalStorage } from "~/chat/lib/hooks/use-local-storage";
 import { useMCP } from "~/chat/lib/context/mcp-context";
 import { useCallback } from "react";
 import { useApiKeys } from "./api-keys-provider";
+import { useCustomProviders } from "./custom-providers-provider";
 
 const CHAT_API_URL = "https://chat-api-worker.idosalomon.workers.dev/api/chat";
 
@@ -20,6 +21,7 @@ export default function Chat() {
   );
 
   const { apiKeys } = useApiKeys();
+  const { customProviders } = useCustomProviders();
 
   // Get MCP server data from context
   const { mcpServersForApi } = useMCP();
@@ -32,6 +34,7 @@ export default function Chat() {
         selectedModel,
         mcpServers: mcpServersForApi,
         apiKeys,
+        customProviders,
       },
       experimental_throttle: 500,
       onError: (error) => {
