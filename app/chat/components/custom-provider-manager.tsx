@@ -68,13 +68,20 @@ export function CustomProviderManager({
         ? `${baseURL}models`
         : `${baseURL}/models`;
 
+      // Create an AbortController with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
       try {
         const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`Failed to fetch models: ${response.statusText}`);
@@ -103,6 +110,10 @@ export function CustomProviderManager({
 
         return [];
       } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new Error("Request timed out. Please check your provider URL.");
+        }
         console.error("Error fetching models:", error);
         throw error;
       }
@@ -129,7 +140,7 @@ export function CustomProviderManager({
       }
 
       const newProvider: CustomProviderConfig = {
-        id: editingProvider?.id || `custom-${Date.now()}`,
+        id: editingProvider?.id || crypto.randomUUID(),
         name: formData.name,
         baseURL: formData.baseURL,
         apiKey: formData.apiKey,
